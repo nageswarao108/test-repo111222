@@ -1,0 +1,56 @@
+name: Deploy Docker Image to Azure App Service
+
+on:
+  push:
+    branches:
+      - main  # Trigger this workflow when pushing to the `main` branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v2
+        
+      # Set up Azure CLI
+      - name: Set up Azure CLI
+        uses: azure/setup-azurecli@v1
+        with:
+          azure-cli-version: '2.30.0'
+
+      # Log in to Azure using Service Principal Authentication
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        
+      # Create Resource Group (if not already created) [Optional]
+      - name: Create Resource Group (if needed)
+        run: |
+          az group create --name my-resource-group --location eastus
+        
+      # Create App Service Plan (if not already created) [Optional]
+      - name: Create App Service Plan
+        run: |
+          az appservice plan create --name my-app-service-plan --resource-group my-resource-group --sku B1 --is-linux
+        
+      # Create Web App (if not already created) [Optional]
+      - name: Create Web App
+        run: |
+          az webapp create --name my-web-app --resource-group my-resource-group --plan my-app-service-plan --deployment-container-image-name <your_dockerhub_username>/<image_name>:<tag>
+        
+      # Configure Web App to pull Docker image from Docker Hub (if app service is created already)
+      - name: Configure App Service for Docker Image
+        run: |
+          az webapp config container set --name my-web-app --resource-group my-resource-group --docker-custom-image-name nageswarao128/test-repo:179 --docker-registry-server-url https://index.docker.io/v1/
+        
+      # Optional: Restart the app service (if necessary)
+      - name: Restart App Service
+        run: |
+          az webapp restart --name my-web-app --resource-group my-resource-group
